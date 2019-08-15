@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+# license removed for brevity
+import sensor_dep.pwm_func as pwmf
+import rospy
+from std_msgs.msg import String, Float64, Float32, Int16
+
+
+class Pwm_Ser():
+
+    def __init__(self):
+        # pi
+        #pwmf.pwm_export(0)# judge  
+        #pwmf.pwm_export(1)# rudder
+        #pwmf.pwm_export(2)# sail
+        #pwmf.pwm_export(4) #pt
+        #pwmf.pwm_export(5)
+        # po
+        self.judge_mid = 1500000
+        self.rudder = 1500000
+        self.sail = 1500000
+        pwmf.pwm_period_config(1,20000000) 
+        pwmf.pwm_period_config(5,20000000)
+        pwmf.pwm_duty_cycle_config(1,self.rudder)
+        pwmf.pwm_duty_cycle_config(5,self.sail)
+        pwmf.pwm_enable(1)
+        pwmf.pwm_enable(5)
+        rospy.Subscriber('pwm_rudder',Float32, self.update_pwm_rudder)
+        rospy.Subscriber('pwm_sail', Float32, self.update_pwm_sail)
+     #   rospy.Subscriber('pwm_rudder', Float64, self.update_pwm_rudder)
+     #   rospy.Subscriber('pwm_sail', Float64, self.update_pwm_sail)
+        self.judge_and_control() 
+
+
+    def update_pwm_rudder(self, msg):
+        self.rudder = int(msg.data)
+        self.rudder = self.rudder*1000
+        #print(self.rudder)
+
+    def update_pwm_sail(self, msg):
+        self.sail = int(msg.data)
+
+    def judge_and_control(self):
+        rate = rospy.Rate(10) # 10hz
+        judge_flag = False
+        while not rospy.is_shutdown():
+            cap_period, cap_pwm = pwmf.pwm_capture(3)  
+            if(cap_pwm>9000000):
+                continue
+            if(cap_period<15000000):
+ 		 #judge_flag = (cap_pwm>self.judge_mid)
+	        continue        
+            judge_flag = (cap_pwm>self.judge_mid)
+            if judge_flag:
+                pwmf.pwm_duty_cycle_config(1,self.rudder)
+                pwmf.pwm_duty_cycle_config(5,self.sail)
+                print("rudder::")
+                print(self.rudder)
+                print("true")
+            else:
+		#receive_pwm = pwmf.pwm_capture(1)
+		#if(receive_pwm < 20000000):
+                	#pwmf.pwm_duty_cycle_config(1,receive_pwm) 
+               # pwmf.pwm_duty_cycle_config(5,pwmf.pwm_capture(2))
+		#print("12")
+                a,b = pwmf.pwm_capture(1)
+		#print("hello")
+                if(a > 15000000):
+                	pwmf.pwm_duty_cycle_config(1,b) 
+                        print("PWM")
+                        print(b)
+                        print("false")
+
+            rate.sleep()
+
+if __name__ == '__main__':
+    try:
+        rospy.init_node("ser_pwm", anonymous=True)
+        Pwm_Ser()
+    except rospy.ROSInterruptException:
+        pass
